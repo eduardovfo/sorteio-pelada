@@ -1,0 +1,18 @@
+[
+  { "nome": "Anderson", "ZAG": 4, "MEI": 4, "ATA": 5 },
+  { "nome": "Daniel", "ZAG": 3, "MEI": 3, "ATA": 2 },
+  { "nome": "Edilson", "ZAG": 5, "MEI": 3, "ATA": 3 },
+  { "nome": "Eduardo", "ZAG": 5, "MEI": 3, "ATA": 2 },
+  { "nome": "Felipe", "ZAG": 2, "MEI": 3, "ATA": 4 },
+  { "nome": "Folotinho", "ZAG": 5, "MEI": 3, "ATA": 4 },
+  { "nome": "Ika", "ZAG": 4, "MEI": 5, "ATA": 3 },
+  { "nome": "Léo", "ZAG": 3, "MEI": 5, "ATA": 3 },
+  { "nome": "Luiz", "ZAG": 5, "MEI": 5, "ATA": 4 },
+  { "nome": "Marquinho", "ZAG": 2, "MEI": 5, "ATA": 5 },
+  { "nome": "Mestre Cezar", "ZAG": 5, "MEI": 2, "ATA": 1 },
+  { "nome": "Moreno", "ZAG": 4, "MEI": 3, "ATA": 3 },
+  { "nome": "Rubenildo", "ZAG": 2, "MEI": 3, "ATA": 3 },
+  { "nome": "Tassio", "ZAG": 5, "MEI": 3, "ATA": 3 },
+  { "nome": "Wallace", "ZAG": 2, "MEI": 3, "ATA": 4 },
+  { "nome": "Yelken", "ZAG": 5, "MEI": 2, "ATA": 3 }
+]
