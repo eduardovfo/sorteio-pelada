@@ -23,7 +23,7 @@ export function ResumoPainel({
       ? selecionados / 5
       : 0;
 
-  const statusIcon = prontoParaSortear ? CircleCheck : CircleAlert;
+  const StatusIcon = prontoParaSortear ? CircleCheck : CircleAlert;
   const statusTexto = prontoParaSortear
     ? "Pronto para sortear"
     : "Ajuste a seleção para sortear";
@@ -87,7 +87,7 @@ export function ResumoPainel({
                 : "bg-amber-100 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"
             }`}
           >
-            <statusIcon className="h-3.5 w-3.5" />
+            <StatusIcon className="h-3.5 w-3.5" />
           </span>
           <div className="flex flex-col">
             <span
