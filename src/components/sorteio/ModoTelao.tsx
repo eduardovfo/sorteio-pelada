@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { X } from "lucide-react";
+import { UserCheck, X } from "lucide-react";
 import type { Posicao, ResultadoSorteio } from "@/types/sorteio";
 import { Shield, Sparkles, Zap } from "lucide-react";
 
@@ -18,6 +18,8 @@ function IconePosicao({ posicao }: { posicao: Posicao }) {
 }
 
 export function ModoTelao({ resultado, onFechar }: Props) {
+  const reservas = resultado.reservas ?? [];
+
   useEffect(() => {
     function handleEsc(e: KeyboardEvent) {
       if (e.key === "Escape") onFechar();
@@ -69,6 +71,24 @@ export function ModoTelao({ resultado, onFechar }: Props) {
           </div>
         ))}
       </div>
+      {reservas.length > 0 && (
+        <div className="mx-auto mt-6 w-full max-w-2xl rounded-2xl border-2 border-amber-300 bg-amber-50/90 p-6 transition-colors dark:border-amber-700/60 dark:bg-amber-950/40">
+          <h2 className="mb-3 flex items-center gap-2 text-lg font-bold text-amber-800 dark:text-amber-200">
+            <UserCheck className="h-5 w-5" />
+            Ficaram para a próxima
+          </h2>
+          <ul className="flex flex-wrap gap-2">
+            {reservas.map((j) => (
+              <li
+                key={j.nome}
+                className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-gray-800 dark:bg-slate-900/70 dark:text-slate-200"
+              >
+                {j.nome}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

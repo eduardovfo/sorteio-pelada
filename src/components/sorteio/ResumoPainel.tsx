@@ -18,10 +18,15 @@ export function ResumoPainel({
   motivoIndisponivel,
   resultado
 }: Props) {
-  const quantidadeTimes =
-    selecionados >= 10 && selecionados % 5 === 0
-      ? selecionados / 5
+  const quantidadeTimes = resultado
+    ? resultado.times.length
+    : selecionados >= 10
+      ? Math.floor(selecionados / 5)
       : 0;
+  const usadosNoSorteio = resultado
+    ? resultado.times.length * 5
+    : null;
+  const quantidadeReservas = resultado?.reservas?.length ?? 0;
 
   const StatusIcon = prontoParaSortear ? CircleCheck : CircleAlert;
   const statusTexto = prontoParaSortear
@@ -54,6 +59,24 @@ export function ResumoPainel({
               {quantidadeTimes}
             </div>
           </div>
+          {usadosNoSorteio !== null && (
+            <>
+              <div>
+                <div className="text-[11px] text-gray-500 dark:text-slate-400">Usados no sorteio</div>
+                <div className="text-lg font-semibold text-green-600 dark:text-emerald-400">
+                  {usadosNoSorteio}
+                </div>
+              </div>
+              {quantidadeReservas > 0 && (
+                <div>
+                  <div className="text-[11px] text-gray-500 dark:text-slate-400">Reservas</div>
+                  <div className="text-lg font-semibold text-amber-600 dark:text-amber-400">
+                    {quantidadeReservas}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
 
@@ -101,7 +124,7 @@ export function ResumoPainel({
               {motivoIndisponivel ??
                 (prontoParaSortear
                   ? 'Toque em "Sortear times" para gerar a melhor combinação possível.'
-                  : "Selecione jogadores suficientes em grupos de 5 para liberar o sorteio.")}
+                  : "Selecione pelo menos 10 jogadores para liberar o sorteio.")}
             </span>
           </div>
         </div>

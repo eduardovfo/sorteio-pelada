@@ -38,6 +38,17 @@ function embaralhar<T>(lista: T[]): T[] {
   return arr;
 }
 
+/** Retorna uma cópia da lista com n elementos aleatórios (Fisher-Yates parcial). */
+function amostraAleatoria<T>(lista: T[], n: number): T[] {
+  if (n >= lista.length) return [...lista];
+  const arr = [...lista];
+  for (let i = 0; i < n; i++) {
+    const j = i + Math.floor(Math.random() * (arr.length - i));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr.slice(0, n);
+}
+
 function avaliarDistribuicao(times: TimeParcial[]): AvaliacaoDistribuicao {
   if (times.length === 0) {
     return { diferencaForca: 0, penalidadeFormacao: 0, scoreTotal: 0 };
@@ -96,12 +107,15 @@ function escolherPosicaoParaJogador(
   return melhor;
 }
 
-export function sortearTimesEquilibrados(
-  jogadoresSelecionados: Jogador[]
-): ResultadoSorteio | null {
-  const total = jogadoresSelecionados.length;
-  if (total < 10) return null;
-  if (total % 5 !== 0) return null;
+/**
+ * Distribui exatamente `jogadores` em times de 5.
+ * Espera lista com tamanho múltiplo de 5. Retorna times e avaliação do equilíbrio.
+ */
+function distribuirJogadoresEmTimes(
+  jogadores: Jogador[]
+): { timesFinais: Time[]; avaliacao: AvaliacaoDistribuicao } | null {
+  const total = jogadores.length;
+  if (total % 5 !== 0 || total < 5) return null;
 
   const quantidadeTimes = total / 5;
   const tentativas = 220;
@@ -112,7 +126,7 @@ export function sortearTimesEquilibrados(
   } | null = null;
 
   for (let tentativa = 0; tentativa < tentativas; tentativa++) {
-    const jogadoresEmbaralhados = embaralhar(jogadoresSelecionados);
+    const jogadoresEmbaralhados = embaralhar(jogadores);
     const times: TimeParcial[] = [];
     for (let i = 0; i < quantidadeTimes; i++) {
       times.push(criarTimeParcial(i + 1));
@@ -176,9 +190,7 @@ export function sortearTimesEquilibrados(
 
   if (!melhorResultado) return null;
 
-  const { times, avaliacao } = melhorResultado;
-
-  const timesFinais: Time[] = times.map((t) => {
+  const timesFinais: Time[] = melhorResultado.times.map((t) => {
     const formacao = melhorFormacaoParaContagem(t.contagemPosicao);
     return {
       id: t.id,
@@ -189,13 +201,62 @@ export function sortearTimesEquilibrados(
     };
   });
 
-  const resultado: ResultadoSorteio = {
-    times: timesFinais,
-    diferencaForca: avaliacao.diferencaForca,
-    formacaoPrioritaria: FORMACOES_PRIORITARIAS[0]
+  return {
+    timesFinais,
+    avaliacao: melhorResultado.avaliacao
   };
+}
 
-  return resultado;
+export function sortearTimesEquilibrados(
+  jogadoresSelecionados: Jogador[]
+): ResultadoSorteio | null {
+  const total = jogadoresSelecionados.length;
+  if (total < 10) return null;
+
+  const nUsed = Math.floor(total / 5) * 5;
+  const nReserva = total - nUsed;
+
+  if (nReserva === 0) {
+    const resultado = distribuirJogadoresEmTimes(jogadoresSelecionados);
+    if (!resultado) return null;
+    return {
+      times: resultado.timesFinais,
+      diferencaForca: resultado.avaliacao.diferencaForca,
+      formacaoPrioritaria: FORMACOES_PRIORITARIAS[0],
+      reservas: []
+    };
+  }
+
+  const nomesUsados = new Set<string>();
+  let melhorScore = Infinity;
+  let melhorTimes: Time[] | null = null;
+  let melhorAvaliacao: AvaliacaoDistribuicao | null = null;
+
+  const tentativasSubconjunto = 150;
+
+  for (let t = 0; t < tentativasSubconjunto; t++) {
+    const subset = amostraAleatoria(jogadoresSelecionados, nUsed);
+    const resultado = distribuirJogadoresEmTimes(subset);
+    if (!resultado) continue;
+    if (resultado.avaliacao.scoreTotal < melhorScore) {
+      melhorScore = resultado.avaliacao.scoreTotal;
+      melhorTimes = resultado.timesFinais;
+      melhorAvaliacao = resultado.avaliacao;
+      nomesUsados.clear();
+      subset.forEach((j) => nomesUsados.add(j.nome));
+    }
+  }
+
+  if (!melhorTimes || !melhorAvaliacao) return null;
+
+  const reservas = jogadoresSelecionados.filter((j) => !nomesUsados.has(j.nome));
+
+  return {
+    times: melhorTimes,
+    diferencaForca: melhorAvaliacao.diferencaForca,
+    formacaoPrioritaria: FORMACOES_PRIORITARIAS[0],
+    reservas
+  };
 }
 
 export function gerarTextoCompartilhamento(resultado: ResultadoSorteio): string {
@@ -213,10 +274,16 @@ export function gerarTextoCompartilhamento(resultado: ResultadoSorteio): string 
     linhas.push("");
   }
 
+  const reservas = resultado.reservas ?? [];
+  if (reservas.length > 0) {
+    linhas.push("Reservas (ficaram para a próxima):");
+    reservas.forEach((j) => linhas.push(`- ${j.nome}`));
+    linhas.push("");
+  }
+
   linhas.push(
     `Diferença de força entre o mais forte e o mais fraco: ${resultado.diferencaForca}`
   );
 
   return linhas.join("\n");
 }
-

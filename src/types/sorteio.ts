@@ -32,5 +32,7 @@ export interface ResultadoSorteio {
   times: Time[];
   diferencaForca: number;
   formacaoPrioritaria: Formacao;
+  /** Jogadores que ficaram de fora (reservas / próxima rodada) */
+  reservas: Jogador[];
 }
 

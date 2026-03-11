@@ -72,17 +72,13 @@ export default function SorteioPage() {
   );
 
   const prontoParaSortear = useMemo(() => {
-    const total = jogadoresSelecionados.length;
-    return total >= 10 && total % 5 === 0;
+    return jogadoresSelecionados.length >= 10;
   }, [jogadoresSelecionados.length]);
 
   const motivoIndisponivel = useMemo(() => {
     const total = jogadoresSelecionados.length;
     if (total < 10) {
-      return "Selecione pelo menos 10 jogadores para formar 2 times.";
-    }
-    if (total % 5 !== 0) {
-      return "A quantidade de jogadores precisa fechar grupos de 5 para o sorteio.";
+      return "É necessário ter pelo menos 10 jogadores selecionados.";
     }
     return undefined;
   }, [jogadoresSelecionados.length]);
@@ -256,8 +252,7 @@ export default function SorteioPage() {
                     Nenhum sorteio realizado ainda.
                   </p>
                   <p className="mt-1">
-                    Selecione os jogadores, verifique se fecha grupos de 5 e
-                    toque em{" "}
+                    Selecione pelo menos 10 jogadores e toque em{" "}
                     <span className="font-semibold text-green-600 dark:text-emerald-300">
                       “Sortear times”
                     </span>{" "}

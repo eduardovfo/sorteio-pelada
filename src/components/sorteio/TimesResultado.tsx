@@ -1,5 +1,5 @@
 import type { Posicao, ResultadoSorteio } from "@/types/sorteio";
-import { Flame, Scale, Trophy } from "lucide-react";
+import { Flame, Scale, Trophy, UserCheck } from "lucide-react";
 import { Shield, Sparkles, Zap } from "lucide-react";
 
 interface Props {
@@ -35,6 +35,7 @@ function BadgePosicao({ posicao }: { posicao: Posicao }) {
 export function TimesResultado({ resultado }: Props) {
   if (!resultado.times.length) return null;
 
+  const reservas = resultado.reservas ?? [];
   const maiorForca = Math.max(...resultado.times.map((t) => t.forcaTotal));
   const menorForca = Math.min(...resultado.times.map((t) => t.forcaTotal));
   const melhorTime = resultado.times.find((t) => t.forcaTotal === maiorForca);
@@ -127,6 +128,25 @@ export function TimesResultado({ resultado }: Props) {
           );
         })}
       </div>
+
+      {reservas.length > 0 && (
+        <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50/80 px-3 py-2.5 dark:border-amber-900/60 dark:bg-amber-950/30">
+          <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-200">
+            <UserCheck className="h-4 w-4" />
+            Ficaram para a próxima
+          </h3>
+          <ul className="space-y-1.5">
+            {reservas.map((j) => (
+              <li
+                key={j.nome}
+                className="rounded-xl bg-white/70 px-2.5 py-2 text-xs font-medium text-gray-800 dark:bg-slate-900/50 dark:text-slate-200"
+              >
+                {j.nome}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </section>
   );
 }
