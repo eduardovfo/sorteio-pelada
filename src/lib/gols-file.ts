@@ -1,10 +1,15 @@
 import fs from "fs/promises";
 import path from "path";
 import type { GolsRecord } from "@/types/gols";
+import {
+  lerGolsDb,
+  salvarGolsDb,
+  tursoDisponivel
+} from "@/lib/gols-db";
 
 const filePath = path.join(process.cwd(), "data", "gols.json");
 
-export async function lerGols(): Promise<GolsRecord> {
+async function lerGolsArquivo(): Promise<GolsRecord> {
   try {
     const data = await fs.readFile(filePath, "utf-8");
     return JSON.parse(data) as GolsRecord;
@@ -15,9 +20,22 @@ export async function lerGols(): Promise<GolsRecord> {
   }
 }
 
-export async function salvarGols(gols: GolsRecord): Promise<void> {
+async function salvarGolsArquivo(gols: GolsRecord): Promise<void> {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, JSON.stringify(gols, null, 2), "utf-8");
+}
+
+export async function lerGols(): Promise<GolsRecord> {
+  if (tursoDisponivel()) return lerGolsDb();
+  return lerGolsArquivo();
+}
+
+export async function salvarGols(gols: GolsRecord): Promise<void> {
+  if (tursoDisponivel()) {
+    await salvarGolsDb(gols);
+    return;
+  }
+  await salvarGolsArquivo(gols);
 }
 
 export async function adicionarGol(nome: string): Promise<GolsRecord> {
