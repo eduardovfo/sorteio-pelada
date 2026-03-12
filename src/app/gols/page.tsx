@@ -13,6 +13,7 @@ export default function GolsPage() {
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [alterado, setAlterado] = useState(false);
+  const [ordenarPorRanking, setOrdenarPorRanking] = useState(true);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -29,6 +30,7 @@ export default function GolsPage() {
       setJogadores(jogadoresData);
       setGols(golsData);
       setAlterado(false);
+      setOrdenarPorRanking(true);
     } catch {
       setErro("Não foi possível carregar os dados.");
     } finally {
@@ -46,6 +48,7 @@ export default function GolsPage() {
       [nome]: (atual[nome] ?? 0) + 1
     }));
     setAlterado(true);
+    setOrdenarPorRanking(false);
     setErro(null);
   }
 
@@ -58,6 +61,7 @@ export default function GolsPage() {
       return next;
     });
     setAlterado(true);
+    setOrdenarPorRanking(false);
     setErro(null);
   }
 
@@ -71,9 +75,12 @@ export default function GolsPage() {
         body: JSON.stringify(gols)
       });
       if (!res.ok) throw new Error("Falha ao salvar");
+      const data = (await res.json()) as GolsRecord;
+      setGols(data);
       setAlterado(false);
+      setOrdenarPorRanking(true);
     } catch {
-      setErro("Não foi possível salvar no arquivo. Tente novamente.");
+      setErro("Não foi possível salvar os gols. Verifique a conexão e tente novamente.");
     } finally {
       setSalvando(false);
     }
@@ -101,7 +108,7 @@ export default function GolsPage() {
                   Marcar gols
                 </h1>
                 <p className="text-[11px] text-gray-500 dark:text-slate-400">
-                  Estatísticas salvas em <code className="rounded bg-gray-200 px-1 text-[10px] dark:bg-slate-800">data/gols.json</code>. Dados em <code className="rounded bg-gray-200 px-1 text-[10px] dark:bg-slate-800">data/jogadores.json</code>.
+                  Estatísticas de gols são salvas no servidor. A lista de jogadores vem de <code className="rounded bg-gray-200 px-1 text-[10px] dark:bg-slate-800">data/jogadores.json</code>.
                 </p>
               </div>
             </div>
@@ -123,7 +130,7 @@ export default function GolsPage() {
               <Artilharia
                 jogadores={jogadores}
                 gols={gols}
-                ordenarPorRanking={!alterado}
+                ordenarPorRanking={ordenarPorRanking}
                 onAdicionar={adicionarGol}
                 onRemover={removerGol}
               />
@@ -131,8 +138,7 @@ export default function GolsPage() {
               <div className="flex flex-col gap-2 rounded-3xl border border-gray-200 bg-white p-3 transition-colors dark:border-slate-800 dark:bg-slate-900/70">
                 {alterado && (
                   <p className="text-[11px] text-amber-700 dark:text-amber-300">
-                    Você tem alterações não salvas. Clique em Salvar para gravar em{" "}
-                    <code className="rounded bg-gray-200 px-1 text-[10px] dark:bg-slate-800">data/gols.json</code>.
+                    Você tem alterações não salvas. Clique em Salvar para enviar para o servidor.
                   </p>
                 )}
                 <button
@@ -142,7 +148,7 @@ export default function GolsPage() {
                   className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-green-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
                 >
                   <Save className="h-4 w-4" />
-                  {salvando ? "Salvando..." : "Salvar no arquivo"}
+                  {salvando ? "Salvando..." : "Salvar gols"}
                 </button>
               </div>
             </>

@@ -28,7 +28,9 @@ export async function POST(request: Request) {
       }
     }
     await salvarGols(gols);
-    return NextResponse.json(gols);
+    // Sempre devolve a visão atual do banco (modelo relacional)
+    const atualizados = await lerGols();
+    return NextResponse.json(atualizados);
   } catch {
     return NextResponse.json(
       { erro: "Erro ao salvar gols" },

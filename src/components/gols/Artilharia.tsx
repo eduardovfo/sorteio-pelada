@@ -37,7 +37,7 @@ export function Artilharia({
         <div>
           <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-50">Artilharia</h2>
           <p className="text-[11px] text-gray-500 dark:text-slate-400">
-            Use os botões para marcar ou desfazer. Depois clique em Salvar para gravar no arquivo.
+            Use os botões para marcar ou desfazer. Depois clique em Salvar para gravar no servidor.
           </p>
         </div>
       </div>

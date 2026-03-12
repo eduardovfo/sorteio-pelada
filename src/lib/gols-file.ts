@@ -1,41 +1,15 @@
-import fs from "fs/promises";
-import path from "path";
 import type { GolsRecord } from "@/types/gols";
-import {
-  lerGolsDb,
-  salvarGolsDb,
-  tursoDisponivel
-} from "@/lib/gols-db";
-
-const filePath = path.join(process.cwd(), "data", "gols.json");
-
-async function lerGolsArquivo(): Promise<GolsRecord> {
-  try {
-    const data = await fs.readFile(filePath, "utf-8");
-    return JSON.parse(data) as GolsRecord;
-  } catch (err) {
-    const code = (err as NodeJS.ErrnoException)?.code;
-    if (code === "ENOENT") return {};
-    throw err;
-  }
-}
-
-async function salvarGolsArquivo(gols: GolsRecord): Promise<void> {
-  await fs.mkdir(path.dirname(filePath), { recursive: true });
-  await fs.writeFile(filePath, JSON.stringify(gols, null, 2), "utf-8");
-}
+import { lerGolsDb, salvarGolsDb } from "@/lib/gols-db";
 
 export async function lerGols(): Promise<GolsRecord> {
-  if (tursoDisponivel()) return lerGolsDb();
-  return lerGolsArquivo();
+  // Sempre usa Turso (SQLite remoto). Se não estiver configurado,
+  // as funções de banco lançarão erro explícito.
+  return lerGolsDb();
 }
 
 export async function salvarGols(gols: GolsRecord): Promise<void> {
-  if (tursoDisponivel()) {
-    await salvarGolsDb(gols);
-    return;
-  }
-  await salvarGolsArquivo(gols);
+  // Persistência unificada apenas no banco Turso.
+  await salvarGolsDb(gols);
 }
 
 export async function adicionarGol(nome: string): Promise<GolsRecord> {
