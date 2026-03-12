@@ -8,8 +8,37 @@ const TABLE_GOLS = "gols";
 function getClient() {
   const url = process.env.TURSO_DATABASE_URL;
   const authToken = process.env.TURSO_AUTH_TOKEN;
-  if (!url || !authToken) return null;
-  return createClient({ url, authToken });
+
+  const hasUrl = Boolean(url);
+  const hasAuthToken = Boolean(authToken);
+
+  if (!hasUrl || !hasAuthToken) {
+    // Log controlado para entender problema em produção (sem expor secrets)
+    let urlHost: string | null = null;
+    try {
+      if (url) {
+        urlHost = new URL(url).host;
+      }
+    } catch {
+      urlHost = null;
+    }
+    console.error("[TURSO] Cliente não configurado", {
+      hasUrl,
+      hasAuthToken,
+      urlHost
+    });
+    return null;
+  }
+
+  let urlHost: string | null = null;
+  try {
+    urlHost = new URL(url as string).host;
+  } catch {
+    urlHost = null;
+  }
+  console.log("[TURSO] Criando client Turso", { urlHost });
+
+  return createClient({ url: url as string, authToken: authToken as string });
 }
 
 async function ensureSchema(db: ReturnType<typeof createClient>) {
@@ -54,6 +83,7 @@ export async function lerGolsDb(): Promise<GolsRecord> {
   }
 
   try {
+    console.log("[TURSO] Lendo gols do banco");
     await ensureSchema(db);
     const rs = await db.execute({
       sql: `
@@ -81,8 +111,12 @@ export async function lerGolsDb(): Promise<GolsRecord> {
       resultado[nome] = Math.floor(quantidade);
     }
 
+    console.log("[TURSO] Leitura de gols concluída", {
+      total: Object.keys(resultado).length
+    });
     return resultado;
-  } catch {
+  } catch (erro) {
+    console.error("[TURSO] Erro ao ler gols do banco", erro);
     return {};
   }
 }
@@ -95,50 +129,60 @@ export async function salvarGolsDb(gols: GolsRecord): Promise<void> {
     );
   }
 
-  await ensureSchema(db);
+  try {
+    console.log("[TURSO] Salvando gols no banco", {
+      totalJogadores: Object.keys(gols).length
+    });
+    await ensureSchema(db);
 
-  // Atualiza ou cria jogadores e seus gols usando o modelo relacional.
-  for (const [nome, valor] of Object.entries(gols)) {
-    const quantidade = Math.max(0, Math.floor(Number(valor) || 0));
-    if (!nome.trim()) continue;
+    // Atualiza ou cria jogadores e seus gols usando o modelo relacional.
+    for (const [nome, valor] of Object.entries(gols)) {
+      const quantidade = Math.max(0, Math.floor(Number(valor) || 0));
+      if (!nome.trim()) continue;
 
-    // Garante que o jogador existe
-    await db.execute({
-      sql: `
+      // Garante que o jogador existe
+      await db.execute({
+        sql: `
         INSERT INTO ${TABLE_JOGADORES} (nome)
         VALUES (?)
         ON CONFLICT(nome) DO NOTHING
       `,
-      args: [nome.trim()],
-    });
+        args: [nome.trim()],
+      });
 
-    const rsId = await db.execute({
-      sql: `SELECT id FROM ${TABLE_JOGADORES} WHERE nome = ?`,
-      args: [nome.trim()],
-    });
-    if (!rsId.rows.length) continue;
-    const jogadorId = Number(
-      (rsId.rows[0] as Record<string, unknown>).id ?? 0
-    );
-    if (!jogadorId || Number.isNaN(jogadorId)) continue;
+      const rsId = await db.execute({
+        sql: `SELECT id FROM ${TABLE_JOGADORES} WHERE nome = ?`,
+        args: [nome.trim()],
+      });
+      if (!rsId.rows.length) continue;
+      const jogadorId = Number(
+        (rsId.rows[0] as Record<string, unknown>).id ?? 0
+      );
+      if (!jogadorId || Number.isNaN(jogadorId)) continue;
 
-    if (quantidade > 0) {
-      await db.execute({
-        sql: `
+      if (quantidade > 0) {
+        await db.execute({
+          sql: `
           INSERT INTO ${TABLE_GOLS} (jogador_id, quantidade, updated_at)
           VALUES (?, ?, datetime('now'))
           ON CONFLICT(jogador_id)
           DO UPDATE SET quantidade = excluded.quantidade, updated_at = excluded.updated_at
         `,
-        args: [jogadorId, quantidade],
-      });
-    } else {
-      // Zera/remover gols quando quantidade for 0
-      await db.execute({
-        sql: `DELETE FROM ${TABLE_GOLS} WHERE jogador_id = ?`,
-        args: [jogadorId],
-      });
+          args: [jogadorId, quantidade],
+        });
+      } else {
+        // Zera/remover gols quando quantidade for 0
+        await db.execute({
+          sql: `DELETE FROM ${TABLE_GOLS} WHERE jogador_id = ?`,
+          args: [jogadorId],
+        });
+      }
     }
+
+    console.log("[TURSO] Salvamento de gols concluído");
+  } catch (erro) {
+    console.error("[TURSO] Erro ao salvar gols no banco", erro);
+    throw erro;
   }
 }
 
@@ -174,6 +218,7 @@ export async function listarJogadoresDb(): Promise<Jogador[]> {
   await ensureSchema(db);
 
   try {
+    console.log("[TURSO] Listando jogadores do banco");
     const rs = await db.execute({
       sql: `SELECT nome, ZAG, MEI, ATA FROM ${TABLE_JOGADORES} ORDER BY nome`,
     });
@@ -183,8 +228,15 @@ export async function listarJogadoresDb(): Promise<Jogador[]> {
       const r = row as unknown[] | Record<string, unknown>;
       lista.push(rowToJogador(r, cols));
     }
+    console.log("[TURSO] Listagem de jogadores concluída", {
+      total: lista.length,
+    });
     return lista;
-  } catch {
+  } catch (erro) {
+    console.error(
+      "[TURSO] Erro ao listar jogadores, tentando fallback sem ZAG/MEI/ATA",
+      erro
+    );
     // Fallback: tabela antiga sem ZAG/MEI/ATA — retorna só nome com notas 0
     const rs = await db.execute({
       sql: `SELECT nome FROM ${TABLE_JOGADORES} ORDER BY nome`,
@@ -195,6 +247,9 @@ export async function listarJogadoresDb(): Promise<Jogador[]> {
       const r = row as unknown[] | Record<string, unknown>;
       lista.push(rowToJogador(r, cols));
     }
+    console.log("[TURSO] Fallback de jogadores concluído", {
+      total: lista.length,
+    });
     return lista;
   }
 }
@@ -208,22 +263,31 @@ export async function seedJogadoresDb(jogadores: Jogador[]): Promise<void> {
     );
   }
 
-  await ensureSchema(db);
+  try {
+    console.log("[TURSO] Seed de jogadores iniciado", {
+      total: jogadores.length,
+    });
+    await ensureSchema(db);
 
-  for (const j of jogadores) {
-    const nome = String(j.nome ?? "").trim();
-    if (!nome) continue;
-    const zag = Math.max(0, Math.min(10, Number(j.ZAG) || 0));
-    const mei = Math.max(0, Math.min(10, Number(j.MEI) || 0));
-    const ata = Math.max(0, Math.min(10, Number(j.ATA) || 0));
+    for (const j of jogadores) {
+      const nome = String(j.nome ?? "").trim();
+      if (!nome) continue;
+      const zag = Math.max(0, Math.min(10, Number(j.ZAG) || 0));
+      const mei = Math.max(0, Math.min(10, Number(j.MEI) || 0));
+      const ata = Math.max(0, Math.min(10, Number(j.ATA) || 0));
 
-    await db.execute({
-      sql: `
+      await db.execute({
+        sql: `
         INSERT INTO ${TABLE_JOGADORES} (nome, ZAG, MEI, ATA)
         VALUES (?, ?, ?, ?)
         ON CONFLICT(nome) DO UPDATE SET ZAG = excluded.ZAG, MEI = excluded.MEI, ATA = excluded.ATA
       `,
-      args: [nome, zag, mei, ata],
-    });
+        args: [nome, zag, mei, ata],
+      });
+    }
+    console.log("[TURSO] Seed de jogadores concluído");
+  } catch (erro) {
+    console.error("[TURSO] Erro durante seed de jogadores", erro);
+    throw erro;
   }
 }

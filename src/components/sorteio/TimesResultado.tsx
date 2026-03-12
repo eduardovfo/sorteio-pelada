@@ -35,7 +35,6 @@ function BadgePosicao({ posicao }: { posicao: Posicao }) {
 export function TimesResultado({ resultado }: Props) {
   if (!resultado.times.length) return null;
 
-  const reservas = resultado.reservas ?? [];
   const maiorForca = Math.max(...resultado.times.map((t) => t.forcaTotal));
   const menorForca = Math.min(...resultado.times.map((t) => t.forcaTotal));
   const melhorTime = resultado.times.find((t) => t.forcaTotal === maiorForca);
@@ -130,25 +129,6 @@ export function TimesResultado({ resultado }: Props) {
           );
         })}
       </div>
-
-      {reservas.length > 0 && (
-        <div className="mt-3 rounded-2xl border-2 border-amber-400 bg-amber-50 px-4 py-3 dark:border-amber-600 dark:bg-amber-950/40 lg:mt-4 lg:px-5 lg:py-4">
-          <h3 className="mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-amber-900 dark:text-amber-100">
-            <span className="text-lg" aria-hidden>⚽</span>
-            Reserva / Próxima rodada
-          </h3>
-          <ul className="space-y-1.5">
-            {reservas.map((j) => (
-              <li
-                key={j.nome}
-                className="rounded-xl bg-white/70 px-2.5 py-2 text-xs font-medium text-gray-800 dark:bg-slate-900/50 dark:text-slate-200"
-              >
-                {j.nome}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </section>
   );
 }

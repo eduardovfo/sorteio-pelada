@@ -107,17 +107,13 @@ function escolherPosicaoParaJogador(
   return melhor;
 }
 
-/**
- * Distribui exatamente `jogadores` em times de 5.
- * Espera lista com tamanho múltiplo de 5. Retorna times e avaliação do equilíbrio.
- */
 function distribuirJogadoresEmTimes(
   jogadores: Jogador[]
 ): { timesFinais: Time[]; avaliacao: AvaliacaoDistribuicao } | null {
   const total = jogadores.length;
-  if (total % 5 !== 0 || total < 5) return null;
+  if (total < 5) return null;
 
-  const quantidadeTimes = total / 5;
+  const quantidadeTimes = Math.ceil(total / 5);
   const tentativas = 220;
 
   let melhorResultado: {
@@ -212,50 +208,13 @@ export function sortearTimesEquilibrados(
 ): ResultadoSorteio | null {
   const total = jogadoresSelecionados.length;
   if (total < 10) return null;
-
-  const nUsed = Math.floor(total / 5) * 5;
-  const nReserva = total - nUsed;
-
-  if (nReserva === 0) {
-    const resultado = distribuirJogadoresEmTimes(jogadoresSelecionados);
-    if (!resultado) return null;
-    return {
-      times: resultado.timesFinais,
-      diferencaForca: resultado.avaliacao.diferencaForca,
-      formacaoPrioritaria: FORMACOES_PRIORITARIAS[0],
-      reservas: []
-    };
-  }
-
-  const nomesUsados = new Set<string>();
-  let melhorScore = Infinity;
-  let melhorTimes: Time[] | null = null;
-  let melhorAvaliacao: AvaliacaoDistribuicao | null = null;
-
-  const tentativasSubconjunto = 150;
-
-  for (let t = 0; t < tentativasSubconjunto; t++) {
-    const subset = amostraAleatoria(jogadoresSelecionados, nUsed);
-    const resultado = distribuirJogadoresEmTimes(subset);
-    if (!resultado) continue;
-    if (resultado.avaliacao.scoreTotal < melhorScore) {
-      melhorScore = resultado.avaliacao.scoreTotal;
-      melhorTimes = resultado.timesFinais;
-      melhorAvaliacao = resultado.avaliacao;
-      nomesUsados.clear();
-      subset.forEach((j) => nomesUsados.add(j.nome));
-    }
-  }
-
-  if (!melhorTimes || !melhorAvaliacao) return null;
-
-  const reservas = jogadoresSelecionados.filter((j) => !nomesUsados.has(j.nome));
-
+  const resultado = distribuirJogadoresEmTimes(jogadoresSelecionados);
+  if (!resultado) return null;
   return {
-    times: melhorTimes,
-    diferencaForca: melhorAvaliacao.diferencaForca,
+    times: resultado.timesFinais,
+    diferencaForca: resultado.avaliacao.diferencaForca,
     formacaoPrioritaria: FORMACOES_PRIORITARIAS[0],
-    reservas
+    reservas: []
   };
 }
 
@@ -271,13 +230,6 @@ export function gerarTextoCompartilhamento(resultado: ResultadoSorteio): string 
         `${escalado.jogador.nome} - ${escalado.posicao} (${escalado.notaNaPosicao})`
       );
     }
-    linhas.push("");
-  }
-
-  const reservas = resultado.reservas ?? [];
-  if (reservas.length > 0) {
-    linhas.push("Reservas (ficaram para a próxima):");
-    reservas.forEach((j) => linhas.push(`- ${j.nome}`));
     linhas.push("");
   }
 
