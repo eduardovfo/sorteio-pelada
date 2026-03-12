@@ -1,5 +1,5 @@
 import type { Posicao, ResultadoSorteio } from "@/types/sorteio";
-import { Flame, Scale, Trophy, UserCheck } from "lucide-react";
+import { Flame, Scale, Trophy } from "lucide-react";
 import { Shield, Sparkles, Zap } from "lucide-react";
 
 interface Props {
@@ -41,8 +41,8 @@ export function TimesResultado({ resultado }: Props) {
   const melhorTime = resultado.times.find((t) => t.forcaTotal === maiorForca);
 
   return (
-    <section className="mt-4 space-y-3">
-      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200 bg-white px-3 py-2.5 transition-colors dark:border-slate-800 dark:bg-slate-900/80">
+    <section className="mt-4 space-y-3 lg:mt-5 lg:space-y-4 2xl:mt-6 2xl:space-y-5">
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200 bg-white px-3 py-2.5 transition-colors dark:border-slate-800 dark:bg-slate-900/80 lg:px-4 lg:py-3 2xl:px-5 2xl:py-4">
         {melhorTime && (
           <span className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-700 dark:text-slate-200">
             <Trophy className="h-4 w-4 text-amber-500 dark:text-amber-400" />
@@ -61,7 +61,7 @@ export function TimesResultado({ resultado }: Props) {
         </span>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 lg:gap-4 xl:gap-5 2xl:gap-6">
         {resultado.times.map((time) => {
           const destaque =
             time.forcaTotal === maiorForca
@@ -74,7 +74,7 @@ export function TimesResultado({ resultado }: Props) {
           return (
             <article
               key={time.id}
-              className={`card-animate flex flex-col gap-2 rounded-3xl border bg-white p-3.5 text-xs shadow-md transition-colors dark:bg-slate-900/80 dark:shadow-soft-card ${
+              className={`card-animate flex flex-col gap-2 rounded-3xl border bg-white p-3.5 text-xs shadow-md transition-colors dark:bg-slate-900/80 dark:shadow-soft-card lg:p-4 2xl:p-5 ${
                 destaque === "mais-forte"
                   ? "border-green-400 dark:border-emerald-400/80"
                   : destaque === "mais-fraco"
@@ -83,11 +83,13 @@ export function TimesResultado({ resultado }: Props) {
               }`}
             >
               <header className="flex flex-col gap-1 border-b border-gray-200 pb-2 dark:border-slate-800">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-base font-bold text-gray-900 dark:text-slate-50">{time.nome}</h3>
-                  <span className="inline-flex items-center gap-1.5 rounded-xl bg-green-100 px-2.5 py-1.5 text-sm font-bold text-green-700 dark:bg-emerald-500/20 dark:text-emerald-300">
-                    <Flame className="h-4 w-4" />
-                    FORÇA: {time.forcaTotal}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-lg font-bold uppercase tracking-tight text-gray-900 dark:text-slate-50 lg:text-xl">
+                    {time.nome}
+                  </h3>
+                  <span className="inline-flex items-center gap-1.5 rounded-xl border-2 border-green-400 bg-green-50 px-3 py-2 text-base font-bold text-green-800 dark:border-emerald-400 dark:bg-emerald-500/20 dark:text-emerald-200 lg:px-4 lg:py-2">
+                    <Flame className="h-5 w-5" />
+                    FORÇA {time.forcaTotal}
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-500 dark:text-slate-400">
@@ -130,10 +132,10 @@ export function TimesResultado({ resultado }: Props) {
       </div>
 
       {reservas.length > 0 && (
-        <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50/80 px-3 py-2.5 dark:border-amber-900/60 dark:bg-amber-950/30">
-          <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-200">
-            <UserCheck className="h-4 w-4" />
-            Ficaram para a próxima
+        <div className="mt-3 rounded-2xl border-2 border-amber-400 bg-amber-50 px-4 py-3 dark:border-amber-600 dark:bg-amber-950/40 lg:mt-4 lg:px-5 lg:py-4">
+          <h3 className="mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-amber-900 dark:text-amber-100">
+            <span className="text-lg" aria-hidden>⚽</span>
+            Reserva / Próxima rodada
           </h3>
           <ul className="space-y-1.5">
             {reservas.map((j) => (

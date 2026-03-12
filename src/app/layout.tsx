@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Nav } from "@/components/Nav";
+import { Sidebar } from "@/components/Sidebar";
 
 export const metadata: Metadata = {
   title: "Sorteio da Pelada",
@@ -23,8 +24,11 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-gray-50 text-gray-900 antialiased transition-colors dark:bg-slate-950 dark:text-slate-50">
-        <Nav />
-        {children}
+        <Sidebar />
+        <div className="lg:pl-24 xl:pl-28 2xl:pl-32">
+          <Nav />
+          {children}
+        </div>
       </body>
     </html>
   );

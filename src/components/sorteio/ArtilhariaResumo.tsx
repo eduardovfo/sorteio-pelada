@@ -26,7 +26,7 @@ export function ArtilhariaResumo() {
 
   if (ranking.length === 0) {
     return (
-      <section className="card-animate rounded-3xl border border-gray-200 bg-white p-3 transition-colors dark:border-slate-800 dark:bg-slate-900/70">
+      <section className="card-animate rounded-3xl border border-gray-200 bg-white p-3 transition-colors dark:border-slate-800 dark:bg-slate-900/70 lg:p-4 2xl:p-5">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Trophy className="h-5 w-5 text-amber-500 dark:text-amber-400" />
@@ -47,7 +47,7 @@ export function ArtilhariaResumo() {
   }
 
   return (
-    <section className="card-animate rounded-3xl border border-gray-200 bg-white p-3 transition-colors dark:border-slate-800 dark:bg-slate-900/70">
+    <section className="card-animate rounded-3xl border border-gray-200 bg-white p-3 transition-colors dark:border-slate-800 dark:bg-slate-900/70 lg:p-4 2xl:p-5">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Trophy className="h-5 w-5 text-amber-500 dark:text-amber-400" />

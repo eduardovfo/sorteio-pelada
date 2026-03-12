@@ -7,10 +7,8 @@ export async function GET() {
     const gols = await lerGols();
     return NextResponse.json(gols);
   } catch {
-    return NextResponse.json(
-      { erro: "Erro ao ler gols" },
-      { status: 500 }
-    );
+    // Devolve vazio para a página carregar (ex.: Turso indisponível)
+    return NextResponse.json({});
   }
 }
 

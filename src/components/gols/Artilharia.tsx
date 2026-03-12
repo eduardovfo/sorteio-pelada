@@ -21,12 +21,13 @@ export function Artilharia({
 }: Props) {
   const lista = jogadores.map((j) => ({ nome: j.nome, gols: gols[j.nome] ?? 0 }));
 
+  // Só ordena por ranking (gols desc, depois nome A–Z) após salvar. Enquanto edita, ordem alfabética estável.
   const exibicao = ordenarPorRanking
     ? [...lista].sort((a, b) => {
         if (b.gols !== a.gols) return b.gols - a.gols;
         return a.nome.localeCompare(b.nome, "pt-BR");
       })
-    : lista;
+    : [...lista].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 
   return (
     <section className="card-animate rounded-3xl border border-gray-200 bg-white p-3.5 shadow-md transition-colors dark:border-slate-800 dark:bg-slate-900/80 dark:shadow-soft-card">

@@ -108,7 +108,7 @@ export default function GolsPage() {
                   Marcar gols
                 </h1>
                 <p className="text-[11px] text-gray-500 dark:text-slate-400">
-                  Estatísticas de gols são salvas no servidor. A lista de jogadores vem de <code className="rounded bg-gray-200 px-1 text-[10px] dark:bg-slate-800">data/jogadores.json</code>.
+                  Estatísticas de gols e a lista de jogadores são salvas no servidor (Turso).
                 </p>
               </div>
             </div>
@@ -122,8 +122,7 @@ export default function GolsPage() {
 
           {jogadores.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-gray-200 bg-gray-50 p-4 text-center text-sm text-gray-500 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-400">
-              Nenhum jogador cadastrado. Adicione em{" "}
-              <code className="rounded bg-gray-200 px-1 dark:bg-slate-800">data/jogadores.json</code>.
+              Nenhum jogador cadastrado no banco. Use a rota <code className="rounded bg-gray-200 px-1 dark:bg-slate-800">POST /api/jogadores/seed</code> para importar a lista.
             </div>
           ) : (
             <>
