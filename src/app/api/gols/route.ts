@@ -2,13 +2,24 @@ import { NextResponse } from "next/server";
 import type { GolsRecord } from "@/types/gols";
 import { lerGols, salvarGols } from "@/lib/gols-file";
 
+function getMensagemErro(erro: unknown): string {
+  if (erro instanceof Error && erro.message) {
+    return erro.message;
+  }
+  return "Erro interno ao processar gols";
+}
+
 export async function GET() {
   try {
     const gols = await lerGols();
     return NextResponse.json(gols);
-  } catch {
-    // Devolve vazio para a página carregar (ex.: Turso indisponível)
-    return NextResponse.json({});
+  } catch (erro) {
+    const mensagem = getMensagemErro(erro);
+    console.error("[API /api/gols] Erro no GET", { mensagem });
+    return NextResponse.json(
+      { erro: "Erro ao carregar gols", detalhe: mensagem },
+      { status: 500 }
+    );
   }
 }
 
@@ -29,9 +40,11 @@ export async function POST(request: Request) {
     // Sempre devolve a visão atual do banco (modelo relacional)
     const atualizados = await lerGols();
     return NextResponse.json(atualizados);
-  } catch {
+  } catch (erro) {
+    const mensagem = getMensagemErro(erro);
+    console.error("[API /api/gols] Erro no POST", { mensagem });
     return NextResponse.json(
-      { erro: "Erro ao salvar gols" },
+      { erro: "Erro ao salvar gols", detalhe: mensagem },
       { status: 500 }
     );
   }

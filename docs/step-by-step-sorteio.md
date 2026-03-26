@@ -102,3 +102,29 @@
     - Definição das formações prioritárias.
     - Função `melhorFormacaoParaContagem` para identificar a melhor formação para cada time com base na contagem real de posições.
 
+### 7. Diagnóstico Turso na Vercel (2026-03-26)
+
+- Problema observado:
+  - Em produção (Vercel), falhas de conexão/configuração do Turso estavam sendo mascaradas por respostas vazias (`{}` e `[]`) em algumas rotas.
+  - Isso dificultava identificar rapidamente se a causa era variável de ambiente ausente ou erro de autenticação/conexão.
+
+- Decisão arquitetural:
+  - Manter o Turso como fonte única de persistência para gols e jogadores.
+  - Melhorar apenas a camada de adaptação HTTP (`app/api`) para expor erro operacional de forma segura e explícita.
+  - Não alterar domínio/regras de negócio.
+
+- Arquivos modificados:
+  - `src/app/api/gols/route.ts`
+    - GET e POST agora retornam `500` com payload `{ erro, detalhe }` em caso de falha.
+    - Adicionado log estruturado para facilitar leitura no Runtime Logs da Vercel.
+  - `src/app/api/gols/adicionar/route.ts`
+    - POST agora retorna `500` com `{ erro, detalhe }` e log do erro.
+  - `src/app/api/gols/remover/route.ts`
+    - POST agora retorna `500` com `{ erro, detalhe }` e log do erro.
+  - `src/app/api/jogadores/route.ts`
+    - GET agora retorna `500` com `{ erro, detalhe }` em vez de lista vazia quando há falha no Turso.
+
+- Resultado esperado:
+  - Quando o Turso não estiver configurado corretamente na Vercel, a API exibirá erro explícito, acelerando o diagnóstico.
+  - O frontend deixa de receber “falso sucesso” com dados vazios em cenários de erro de infraestrutura.
+

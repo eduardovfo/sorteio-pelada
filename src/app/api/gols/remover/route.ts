@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { removerGol } from "@/lib/gols-file";
 
+function getMensagemErro(erro: unknown): string {
+  if (erro instanceof Error && erro.message) {
+    return erro.message;
+  }
+  return "Erro interno ao remover gol";
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as { nome?: string };
@@ -13,9 +20,11 @@ export async function POST(request: Request) {
     }
     const gols = await removerGol(nome);
     return NextResponse.json(gols);
-  } catch {
+  } catch (erro) {
+    const mensagem = getMensagemErro(erro);
+    console.error("[API /api/gols/remover] Erro no POST", { mensagem });
     return NextResponse.json(
-      { erro: "Erro ao remover gol" },
+      { erro: "Erro ao remover gol", detalhe: mensagem },
       { status: 500 }
     );
   }
