@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Nav } from "@/components/Nav";
-import { Sidebar } from "@/components/Sidebar";
+// import { Sidebar } from "@/components/Sidebar";
+import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
   title: "Sorteio da Pelada",
@@ -24,8 +25,9 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-gray-50 text-gray-900 antialiased transition-colors dark:bg-slate-950 dark:text-slate-50">
-        <Sidebar />
-        <div className="lg:pl-24 xl:pl-28 2xl:pl-32">
+        <Toaster richColors position="top-center" closeButton />
+        {/* <Sidebar /> */}
+        <div>
           <Nav />
           {children}
         </div>

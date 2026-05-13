@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import type { GolsRecord } from "@/types/gols";
-import { lerGols, salvarGols } from "@/lib/gols-file";
+import {
+  lerGolsDb,
+  lerGolsPorPeladaDb,
+  salvarGolsPorPeladaDb,
+} from "@/lib/gols-db";
+import { requireAdminOr401 } from "@/lib/require-admin-api";
 
 function getMensagemErro(erro: unknown): string {
   if (erro instanceof Error && erro.message) {
@@ -9,9 +14,22 @@ function getMensagemErro(erro: unknown): string {
   return "Erro interno ao processar gols";
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const gols = await lerGols();
+    const { searchParams } = new URL(request.url);
+    const raw = searchParams.get("peladaId");
+    if (raw != null && raw !== "") {
+      const peladaId = Number(raw);
+      if (!Number.isFinite(peladaId)) {
+        return NextResponse.json(
+          { erro: "peladaId inválido" },
+          { status: 400 }
+        );
+      }
+      const gols = await lerGolsPorPeladaDb(peladaId);
+      return NextResponse.json(gols);
+    }
+    const gols = await lerGolsDb();
     return NextResponse.json(gols);
   } catch (erro) {
     const mensagem = getMensagemErro(erro);
@@ -25,20 +43,35 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as GolsRecord;
-    if (body === null || typeof body !== "object" || Array.isArray(body)) {
-      return NextResponse.json({ erro: "Payload inválido" }, { status: 400 });
+    const denied = await requireAdminOr401();
+    if (denied) return denied;
+
+    const body = (await request.json()) as {
+      peladaId?: unknown;
+      gols?: unknown;
+    };
+    const peladaId = Number(body?.peladaId);
+    if (!Number.isFinite(peladaId)) {
+      return NextResponse.json(
+        {
+          erro: "peladaId é obrigatório (número). Envie { peladaId, gols }.",
+        },
+        { status: 400 }
+      );
+    }
+    const raw = body.gols;
+    if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+      return NextResponse.json({ erro: "gols inválido" }, { status: 400 });
     }
     const gols: GolsRecord = {};
-    for (const [nome, valor] of Object.entries(body)) {
+    for (const [nome, valor] of Object.entries(raw as GolsRecord)) {
       const n = Number(valor);
       if (typeof nome === "string" && !Number.isNaN(n) && n >= 0) {
         gols[nome] = Math.floor(n);
       }
     }
-    await salvarGols(gols);
-    // Sempre devolve a visão atual do banco (modelo relacional)
-    const atualizados = await lerGols();
+    await salvarGolsPorPeladaDb(peladaId, gols);
+    const atualizados = await lerGolsPorPeladaDb(peladaId);
     return NextResponse.json(atualizados);
   } catch (erro) {
     const mensagem = getMensagemErro(erro);

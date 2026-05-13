@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { removerGol } from "@/lib/gols-file";
+import { removerGol } from "@/lib/gols-db";
+import { requireAdminOr401 } from "@/lib/require-admin-api";
 
 function getMensagemErro(erro: unknown): string {
   if (erro instanceof Error && erro.message) {
@@ -10,15 +11,28 @@ function getMensagemErro(erro: unknown): string {
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as { nome?: string };
+    const denied = await requireAdminOr401();
+    if (denied) return denied;
+
+    const body = (await request.json()) as {
+      nome?: string;
+      peladaId?: unknown;
+    };
     const nome = typeof body?.nome === "string" ? body.nome.trim() : "";
+    const peladaId = Number(body?.peladaId);
     if (!nome) {
       return NextResponse.json(
         { erro: "Nome do jogador é obrigatório" },
         { status: 400 }
       );
     }
-    const gols = await removerGol(nome);
+    if (!Number.isFinite(peladaId)) {
+      return NextResponse.json(
+        { erro: "peladaId é obrigatório" },
+        { status: 400 }
+      );
+    }
+    const gols = await removerGol(nome, peladaId);
     return NextResponse.json(gols);
   } catch (erro) {
     const mensagem = getMensagemErro(erro);

@@ -7,7 +7,14 @@ import type { GolsRecord } from "@/types/gols";
 interface Props {
   jogadores: Jogador[];
   gols: GolsRecord;
+  /**
+   * Fonte de gols usada para decidir a ordenação.
+   * Quando fizer edição otimista, passe os gols vindos do servidor para manter a ordem.
+   */
+  golsParaOrdenacao?: GolsRecord;
   ordenarPorRanking?: boolean;
+  /** Visitantes veem a artilharia sem alterar gols. */
+  somenteLeitura?: boolean;
   onAdicionar: (nome: string) => void;
   onRemover: (nome: string) => void;
 }
@@ -15,19 +22,27 @@ interface Props {
 export function Artilharia({
   jogadores,
   gols,
+  golsParaOrdenacao,
   ordenarPorRanking = true,
+  somenteLeitura = false,
   onAdicionar,
-  onRemover
+  onRemover,
 }: Props) {
-  const lista = jogadores.map((j) => ({ nome: j.nome, gols: gols[j.nome] ?? 0 }));
+  const golsDeOrdenacao = golsParaOrdenacao ?? gols;
 
-  // Só ordena por ranking (gols desc, depois nome A–Z) após salvar. Enquanto edita, ordem alfabética estável.
+  const lista = jogadores.map((j) => ({
+    nome: j.nome,
+    golsExibicao: gols[j.nome] ?? 0,
+    golsOrdenacao: golsDeOrdenacao[j.nome] ?? 0
+  }));
+
   const exibicao = ordenarPorRanking
     ? [...lista].sort((a, b) => {
-        if (b.gols !== a.gols) return b.gols - a.gols;
+        if (b.golsOrdenacao !== a.golsOrdenacao)
+          return b.golsOrdenacao - a.golsOrdenacao;
         return a.nome.localeCompare(b.nome, "pt-BR");
       })
-    : [...lista].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+    : lista;
 
   return (
     <section className="card-animate rounded-3xl border border-gray-200 bg-white p-3.5 shadow-md transition-colors dark:border-slate-800 dark:bg-slate-900/80 dark:shadow-soft-card">
@@ -38,7 +53,9 @@ export function Artilharia({
         <div>
           <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-50">Artilharia</h2>
           <p className="text-[11px] text-gray-500 dark:text-slate-400">
-            Use os botões para marcar ou desfazer. Depois clique em Salvar para gravar no servidor.
+            {somenteLeitura
+              ? "Apenas administradores podem alterar os gols desta pelada."
+              : "Use os botões para marcar ou desfazer. Depois clique em Salvar para gravar no servidor."}
           </p>
         </div>
       </div>
@@ -57,29 +74,31 @@ export function Artilharia({
                 {item.nome}
               </span>
               <span className="flex flex-shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
-                <span>{item.gols}</span>
+                <span>{item.golsExibicao}</span>
                 <span className="text-[10px]">⚽</span>
               </span>
             </div>
-            <div className="flex flex-shrink-0 items-center gap-1">
-              <button
-                type="button"
-                onClick={() => onRemover(item.nome)}
-                disabled={item.gols === 0}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-300 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:opacity-40 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-                aria-label={`Remover gol de ${item.nome}`}
-              >
-                <Minus className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => onAdicionar(item.nome)}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-green-600 text-white transition-colors hover:bg-green-700 dark:bg-amber-500 dark:text-amber-950 dark:hover:bg-amber-400"
-                aria-label={`Adicionar gol para ${item.nome}`}
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-            </div>
+            {!somenteLeitura && (
+              <div className="flex flex-shrink-0 items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => onRemover(item.nome)}
+                  disabled={item.golsExibicao === 0}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-300 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:opacity-40 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                  aria-label={`Remover gol de ${item.nome}`}
+                >
+                  <Minus className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onAdicionar(item.nome)}
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-green-600 text-white transition-colors hover:bg-green-700 dark:bg-amber-500 dark:text-amber-950 dark:hover:bg-amber-400"
+                  aria-label={`Adicionar gol para ${item.nome}`}
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
+            )}
           </li>
         ))}
       </ul>

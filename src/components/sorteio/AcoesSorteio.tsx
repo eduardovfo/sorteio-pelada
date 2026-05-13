@@ -1,125 +1,111 @@
 "use client";
 
 import Link from "next/link";
-import { Loader2, RefreshCw, Share2, Trash2, Tv } from "lucide-react";
-import { gerarTextoCompartilhamento } from "@/lib/sorteioAlgoritmo";
+import { Copy, Loader2, Shuffle, Trash2, Tv, UserX } from "lucide-react";
+import { copiarResultadoSorteio } from "@/lib/compartilhar-resultado-sorteio";
 import type { ResultadoSorteio } from "@/types/sorteio";
 
 interface Props {
   podeSortear: boolean;
   estaProcessando: boolean;
   onSortear: () => void;
-  onSortearNovamente: () => void;
   onLimparResultado: () => void;
   onResetTudo: () => void;
+  onDesativarSelecao: () => void;
   resultado?: ResultadoSorteio | null;
+  motivoIndisponivel?: string;
 }
 
 export function AcoesSorteio({
   podeSortear,
   estaProcessando,
   onSortear,
-  onSortearNovamente,
   onLimparResultado,
   onResetTudo,
-  resultado
+  onDesativarSelecao,
+  resultado,
+  motivoIndisponivel
 }: Props) {
-  async function handleCompartilhar() {
-    if (!resultado) return;
-    const texto = gerarTextoCompartilhamento(resultado);
-
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: "Sorteio da pelada",
-          text: texto
-        });
-      } else if (navigator.clipboard) {
-        await navigator.clipboard.writeText(texto);
-        alert("Resultado copiado para a área de transferência.");
-      }
-    } catch {
-      if (navigator.clipboard) {
-        await navigator.clipboard.writeText(texto);
-        alert("Resultado copiado para a área de transferência.");
-      }
-    }
-  }
-
   const temResultado = resultado && resultado.times.length > 0;
 
-  const btnSecundario =
-    "inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border text-xs font-medium transition-colors lg:h-11";
+  function handleCopiar() {
+    if (!resultado) return;
+    void copiarResultadoSorteio(resultado);
+  }
+
+  const outlineBtn =
+    "inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800";
 
   return (
-    <div className="card-animate mt-3 flex flex-col gap-2 rounded-3xl border border-gray-200 bg-white p-3 shadow-md transition-colors dark:border-slate-800 dark:bg-slate-900/70 dark:shadow-soft-card lg:grid lg:grid-cols-4 lg:gap-3 lg:p-4 2xl:gap-4 2xl:p-5">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400 lg:col-span-4 lg:mb-1">
-        Ações do sorteio
-      </h2>
-
-      {/* Linha 1: ação principal + Modo telão */}
+    <div className="card-animate flex flex-col gap-2 rounded-3xl border border-gray-200 bg-white p-4 shadow-md transition-colors dark:border-slate-800 dark:bg-slate-900/70 dark:shadow-soft-card">
       <button
         type="button"
         onClick={onSortear}
         disabled={!podeSortear || estaProcessando}
-        className={`inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-4 text-sm font-semibold text-white shadow transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400 dark:disabled:bg-emerald-500/30 lg:col-span-3 lg:h-12 ${!temResultado ? "lg:col-span-4" : ""}`}
+        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-green-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
       >
         {estaProcessando ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-hidden />
         ) : (
-          <RefreshCw className="h-4 w-4" />
+          <Shuffle className="h-4 w-4 shrink-0" aria-hidden />
         )}
-        {estaProcessando ? "Processando sorteio..." : "Sortear times"}
+        {estaProcessando ? "Processando sorteio..." : "Sortear"}
       </button>
 
-      {temResultado && (
-        <Link
-          href="/telao"
-          className={`${btnSecundario} border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-600/50 dark:bg-amber-500/10 dark:text-amber-200 dark:hover:bg-amber-500/20 lg:col-span-1 lg:h-12`}
-          title="Abrir em tela cheia (TV ou projetor)"
-        >
-          <Tv className="h-4 w-4 shrink-0" />
-          Modo telão
-        </Link>
+      {!podeSortear && motivoIndisponivel && (
+        <p className="px-1 text-[11px] text-amber-700 dark:text-amber-300">
+          {motivoIndisponivel}
+        </p>
       )}
 
-      {/* Linha 2: Sortear novamente + Copiar */}
-      <button
-        type="button"
-        onClick={onSortearNovamente}
-        disabled={!podeSortear || estaProcessando}
-        className={`${btnSecundario} col-span-2 border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:border-emerald-500/60 dark:hover:bg-slate-900/80`}
-      >
-        <RefreshCw className="h-3.5 w-3.5 shrink-0" />
-        Sortear novamente
-      </button>
+      {temResultado && (
+        <>
+          <div className="flex gap-2">
+            <Link
+              href="/telao"
+              className={outlineBtn}
+              title="Abrir em tela cheia (TV ou projetor)"
+            >
+              <Tv className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              Telão
+            </Link>
+            <button
+              type="button"
+              onClick={handleCopiar}
+              className={outlineBtn}
+              aria-label="Copiar resultado do sorteio"
+            >
+              <Copy className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              Copiar
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={onLimparResultado}
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 transition-colors hover:bg-red-100 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200 dark:hover:bg-red-950/70"
+          >
+            <Trash2 className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            Limpar resultado
+          </button>
+        </>
+      )}
+
+      <hr className="border-gray-100 dark:border-slate-800" />
 
       <button
         type="button"
-        onClick={handleCompartilhar}
-        disabled={!resultado}
-        className={`${btnSecundario} col-span-2 border-green-300 bg-green-50 text-green-800 hover:bg-green-100 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-400 dark:border-emerald-600/60 dark:bg-emerald-500/10 dark:text-emerald-200 dark:hover:border-emerald-400 dark:disabled:border-slate-700 dark:disabled:text-slate-500`}
+        onClick={onDesativarSelecao}
+        className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600 transition-colors hover:bg-gray-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
       >
-        <Share2 className="h-3.5 w-3.5 shrink-0" />
-        Copiar / compartilhar
+        <UserX className="h-3.5 w-3.5 shrink-0" aria-hidden />
+        Desativar todos
       </button>
-
-      {/* Linha 3: Limpar + Resetar (destrutivo) */}
-      <button
-        type="button"
-        onClick={onLimparResultado}
-        className={`${btnSecundario} col-span-2 border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:border-slate-500`}
-      >
-        <Trash2 className="h-3.5 w-3.5 shrink-0" />
-        Limpar resultado
-      </button>
-
       <button
         type="button"
         onClick={onResetTudo}
-        className={`${btnSecundario} col-span-2 border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-900/50 dark:bg-red-950/50 dark:text-red-200 dark:hover:border-red-500/50 dark:hover:bg-red-950/70`}
+        className="w-full rounded-md px-3 py-1.5 text-center text-[11px] text-gray-500 transition-colors hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200"
       >
-        <Trash2 className="h-3.5 w-3.5 shrink-0" />
         Resetar tudo
       </button>
     </div>

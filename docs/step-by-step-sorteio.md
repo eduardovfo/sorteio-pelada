@@ -128,3 +128,77 @@
   - Quando o Turso não estiver configurado corretamente na Vercel, a API exibirá erro explícito, acelerando o diagnóstico.
   - O frontend deixa de receber “falso sucesso” com dados vazios em cenários de erro de infraestrutura.
 
+### 8. Ordenação de Artilharia só após dados do banco (2026-03-26)
+
+- Problema:
+  - Ao clicar `+`/`-` para ajustar gols, a lista de `Artilharia` mudava de ordenação antes do Turso confirmar (ordenação baseada em alterações locais).
+
+- Decisão:
+  - Separar “gols exibidos (otimistas)” de “gols persistidos (referência para ordenação)”.
+  - A ordenação do ranking continua usando apenas `golsPersistidos` até o `Salvar` (API `/api/gols`) retornar os dados do servidor.
+
+- Arquivos modificados:
+  - `src/app/gols/page.tsx`:
+    - adicionada state `golsPersistidos`;
+    - atualizações locais em `gols` não afetam `golsPersistidos`;
+    - após `POST /api/gols`, ambos são sincronizados com o retorno do banco.
+  - `src/components/gols/Artilharia.tsx`:
+    - adicionado prop `golsParaOrdenacao` para usar os gols persistidos na ordenação;
+    - ordenação baseada em gols de referência, enquanto a exibição usa gols locais.
+
+### 9. Peladas (quartas-feiras), gols por pelada e destaques (2026-03-26)
+
+- Requisito:
+  - Gols passam a ser por **pelada** (cada quarta-feira); uma tabela guarda **data** e **destaques** (Craque, Pereba, Artilheiro, Garçom, Xerifão, Paredão, Bola Murcha).
+  - O ranking **geral** exibido em `GET /api/gols` sem query soma gols de **todas** as peladas.
+
+- Modelo no Turso:
+  - `peladas`: `data_pelada` (única), colunas opcionais `*_nome` para cada destaque.
+  - `gols_pelada`: `pelada_id`, `jogador_id`, `quantidade` (único por par pelada+jogador).
+  - Migração: se existir histórico na tabela legada `gols` e não houver peladas, cria-se uma pelada com a data atual e copiam-se os gols para `gols_pelada`.
+
+- Arquivos principais:
+  - `src/lib/turso-client.ts`: cliente Turso reutilizável.
+  - `src/lib/peladas-db.ts`: schema `peladas` / `gols_pelada`, migração, CRUD de peladas e leitura/gravação de gols por pelada.
+  - `src/lib/gols-db.ts`: `ensureSchema` inclui peladas; `lerGolsDb` agrega todas as peladas; novos exports `lerGolsPorPeladaDb`, `salvarGolsPorPeladaDb`, `listarPeladasDb`, etc.
+  - `src/types/pelada.ts`: tipos `Pelada`, `DestaquesPelada`.
+  - `src/lib/datas-pelada.ts`: fuso `America/Sao_Paulo`, `hojeEmFusoPelada`, `isQuartaEmFusoPelada`; `proximaQuartaFeiraDesde` (migração legada).
+  - `src/app/api/peladas/route.ts`, `src/app/api/peladas/[id]/route.ts`: listar peladas (com auto-criação na quarta); GET/PATCH destaques; POST manual desabilitado.
+  - `src/app/api/gols/route.ts`: `GET ?peladaId=` por pelada; `POST` com `{ peladaId, gols }`; sem query mantém agregado geral.
+  - `src/app/api/gols/adicionar` e `remover`: corpo `{ nome, peladaId }`.
+  - `src/app/gols/page.tsx`: visitantes veem pelada de **hoje** (ou a mais recente) em somente leitura; **admin** (login na própria página) escolhe qualquer pelada no select, edita gols e destaques e salva.
+  - `src/components/gols/DestaquesPeladaForm.tsx`: edição dos sete destaques com `PATCH /api/peladas/[id]` (requer sessão admin).
+
+### 10. Calendário de quartas 2026 e regra “só quarta” (2026-03-26)
+
+- Regra: pelada só em **quarta-feira** no fuso **`America/Sao_Paulo`** (`isQuartaEmFusoPelada` / `hojeEmFusoPelada`).
+- Dados: `src/data/quartas-pelada-2026.ts` — **41 datas** de 25/03/2026 a 30/12/2026.
+- `POST /api/peladas/seed`: insere em massa essas datas (`INSERT OR IGNORE`).
+- Migração legada de `gols` → primeira pelada usa `proximaQuartaFeiraDesde` em vez de “hoje” UTC.
+- UI `/gols`: sem select de pelada nem import na tela; calendário em massa continua disponível via `POST /api/peladas/seed` se necessário.
+
+### 11. Pelada do dia automática (2026-03-26)
+
+- `ensurePeladaHojeSeQuartaComDb`: se **hoje** (em `America/Sao_Paulo`) for quarta, faz `INSERT OR IGNORE` da data em `peladas`.
+- Executado em `listarPeladasDb()` antes do `SELECT`; **`GET /api/peladas`** materializa a pelada do dia quando aplicável.
+- `POST /api/peladas` retorna **403** (criação manual desabilitada).
+- A UI prioriza a pelada cuja `dataPelada` coincide com `hojeEmFusoPelada()`.
+
+### 12. Página Artilharia (`/artilharia`) (2026-03-26)
+
+- Objetivo: ver **ranking geral** (soma de todas as peladas), e por cada data **destaques** + **gols daquela noite**.
+- API `GET /api/peladas/resumo`: sem query, lista completa `PeladaComRanking[]` (legado); com `?data=YYYY-MM-DD`, retorna uma pelada com destaques + ranking (uso na UI por data).
+- `listarPeladasComRankingComDb` em `peladas-db.ts` agrega `gols_pelada` em uma consulta.
+- Navegação: links **Artilharia** na `Sidebar` e no menu mobile.
+- `src/app/artilharia/page.tsx`: consumo do resumo + `GET /api/gols` para o bloco “artilharia geral”.
+
+### 13. Admin e login para edição de gols/destaques (2026-04-08)
+
+- Objetivo: só um **administrador** altera gols (por pelada) e destaques; visitantes apenas leem na `/gols`.
+- Credenciais: variáveis `ADMIN_USER` (opcional, padrão `admin`), `ADMIN_PASSWORD` (obrigatório em produção), `ADMIN_SESSION_SECRET` (obrigatório em produção para assinar o cookie). Em **desenvolvimento**, se `ADMIN_PASSWORD` estiver vazio, usa-se senha `admin` (e segredo de dev fixo — não usar em produção).
+- Sessão: cookie httpOnly `pelada_admin_sess` com payload `{ exp }` assinado em HMAC-SHA256 (`src/lib/admin-session.ts`). Rotas: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/session`.
+- Rotas de escrita protegidas com `requireAdminOr401` (`src/lib/require-admin-api.ts`): `POST /api/gols`, `POST /api/gols/adicionar`, `POST /api/gols/remover`, `POST /api/gols/geral` (artilharia geral via tabela `gols_geral_ajuste`), `PATCH /api/peladas/[id]`, `POST /api/peladas/seed`.
+- UI: `src/app/gols/page.tsx` — formulário de login para não admins; após login, select de pelada e botões de edição; `Artilharia` com `somenteLeitura`; `DestaquesPeladaForm` com `podeEditar` e tratamento de 401.
+- UI: `src/app/artilharia/page.tsx` — mesma sessão admin; bloco artilharia geral com `Artilharia` editável e `POST /api/gols/geral` (ajuste não altera `gols_pelada`).
+- Documentação de env: `.env.example`.
+

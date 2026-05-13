@@ -1,47 +1,43 @@
-import { createClient } from "@libsql/client";
 import type { GolsRecord } from "@/types/gols";
 import type { Jogador } from "@/types/sorteio";
+import type {
+  Pelada,
+  PeladaAtualizarDestaquesInput,
+  PeladaCriarInput,
+  PeladaComRanking,
+} from "@/types/pelada";
+import { getTursoClient, type TursoClient } from "@/lib/turso-client";
+import {
+  atualizarDestaquesComDb,
+  criarPeladaComDb,
+  ensurePeladaHojeSeQuartaComDb,
+  ensurePeladasSchema,
+  lerGolsAgregadosComDb,
+  lerGolsPorPeladaComDb,
+  listarPeladasComDb,
+  listarPeladasComRankingComDb,
+  migrateLegacyGolsIfNeeded,
+  obterPeladaComRankingPorDataComDb,
+  obterPeladaPorIdComDb,
+  salvarGolsPorPeladaComDb,
+  salvarGolsGeralAjusteComDb,
+  seedQuartasPelada2026ComDb,
+} from "@/lib/peladas-db";
 
 const TABLE_JOGADORES = "jogadores";
 const TABLE_GOLS = "gols";
 
-function getClient() {
-  const url = process.env.TURSO_DATABASE_URL;
-  const authToken = process.env.TURSO_AUTH_TOKEN;
-
-  const hasUrl = Boolean(url);
-  const hasAuthToken = Boolean(authToken);
-
-  if (!hasUrl || !hasAuthToken) {
-    // Log controlado para entender problema em produção (sem expor secrets)
-    let urlHost: string | null = null;
-    try {
-      if (url) {
-        urlHost = new URL(url).host;
-      }
-    } catch {
-      urlHost = null;
-    }
-    console.error("[TURSO] Cliente não configurado", {
-      hasUrl,
-      hasAuthToken,
-      urlHost
-    });
-    return null;
+function requireDb(): TursoClient {
+  const db = getTursoClient();
+  if (!db) {
+    throw new Error(
+      "Turso não configurado. Defina TURSO_DATABASE_URL e TURSO_AUTH_TOKEN."
+    );
   }
-
-  let urlHost: string | null = null;
-  try {
-    urlHost = new URL(url as string).host;
-  } catch {
-    urlHost = null;
-  }
-  console.log("[TURSO] Criando client Turso", { urlHost });
-
-  return createClient({ url: url as string, authToken: authToken as string });
+  return db;
 }
 
-async function ensureSchema(db: ReturnType<typeof createClient>) {
+async function ensureSchema(db: TursoClient): Promise<void> {
   await db.execute(
     `CREATE TABLE IF NOT EXISTS ${TABLE_JOGADORES} (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -59,7 +55,7 @@ async function ensureSchema(db: ReturnType<typeof createClient>) {
         `ALTER TABLE ${TABLE_JOGADORES} ADD COLUMN ${col} INTEGER NOT NULL DEFAULT 0`
       );
     } catch {
-      // Coluna já existe (tabela criada com schema novo)
+      // Coluna já existe
     }
   }
 
@@ -72,47 +68,20 @@ async function ensureSchema(db: ReturnType<typeof createClient>) {
       UNIQUE(jogador_id)
     )`
   );
+
+  await ensurePeladasSchema(db);
+  await migrateLegacyGolsIfNeeded(db);
 }
 
+/** Gols somados em todas as peladas (artilharia geral). */
 export async function lerGolsDb(): Promise<GolsRecord> {
-  const db = getClient();
-  if (!db) {
-    throw new Error(
-      "Turso não configurado. Defina TURSO_DATABASE_URL e TURSO_AUTH_TOKEN."
-    );
-  }
-
+  const db = requireDb();
   try {
-    console.log("[TURSO] Lendo gols do banco");
+    console.log("[TURSO] Lendo gols agregados (todas as peladas)");
     await ensureSchema(db);
-    const rs = await db.execute({
-      sql: `
-        SELECT j.nome AS nome, g.quantidade AS quantidade
-        FROM ${TABLE_JOGADORES} j
-        JOIN ${TABLE_GOLS} g ON g.jogador_id = j.id
-        WHERE g.quantidade > 0
-      `,
-    });
-
-    const cols = rs.columns ?? ["nome", "quantidade"];
-    const idxNome = cols.indexOf("nome");
-    const idxQtd = cols.indexOf("quantidade");
-    const resultado: GolsRecord = {};
-
-    for (const row of rs.rows) {
-      const r = row as unknown[] | Record<string, unknown>;
-      const nome = String(
-        Array.isArray(r) ? (idxNome >= 0 ? r[idxNome] : "") : (r as Record<string, unknown>).nome ?? ""
-      );
-      const quantidade = Number(
-        Array.isArray(r) ? (idxQtd >= 0 ? r[idxQtd] : 0) : (r as Record<string, unknown>).quantidade ?? 0
-      );
-      if (!nome || Number.isNaN(quantidade) || quantidade <= 0) continue;
-      resultado[nome] = Math.floor(quantidade);
-    }
-
+    const resultado = await lerGolsAgregadosComDb(db);
     console.log("[TURSO] Leitura de gols concluída", {
-      total: Object.keys(resultado).length
+      total: Object.keys(resultado).length,
     });
     return resultado;
   } catch (erro) {
@@ -121,72 +90,119 @@ export async function lerGolsDb(): Promise<GolsRecord> {
   }
 }
 
-export async function salvarGolsDb(gols: GolsRecord): Promise<void> {
-  const db = getClient();
-  if (!db) {
-    throw new Error(
-      "Turso não configurado. Defina TURSO_DATABASE_URL e TURSO_AUTH_TOKEN."
-    );
-  }
-
-  try {
-    console.log("[TURSO] Salvando gols no banco", {
-      totalJogadores: Object.keys(gols).length
-    });
-    await ensureSchema(db);
-
-    // Atualiza ou cria jogadores e seus gols usando o modelo relacional.
-    for (const [nome, valor] of Object.entries(gols)) {
-      const quantidade = Math.max(0, Math.floor(Number(valor) || 0));
-      if (!nome.trim()) continue;
-
-      // Garante que o jogador existe
-      await db.execute({
-        sql: `
-        INSERT INTO ${TABLE_JOGADORES} (nome)
-        VALUES (?)
-        ON CONFLICT(nome) DO NOTHING
-      `,
-        args: [nome.trim()],
-      });
-
-      const rsId = await db.execute({
-        sql: `SELECT id FROM ${TABLE_JOGADORES} WHERE nome = ?`,
-        args: [nome.trim()],
-      });
-      if (!rsId.rows.length) continue;
-      const jogadorId = Number(
-        (rsId.rows[0] as Record<string, unknown>).id ?? 0
-      );
-      if (!jogadorId || Number.isNaN(jogadorId)) continue;
-
-      if (quantidade > 0) {
-        await db.execute({
-          sql: `
-          INSERT INTO ${TABLE_GOLS} (jogador_id, quantidade, updated_at)
-          VALUES (?, ?, datetime('now'))
-          ON CONFLICT(jogador_id)
-          DO UPDATE SET quantidade = excluded.quantidade, updated_at = excluded.updated_at
-        `,
-          args: [jogadorId, quantidade],
-        });
-      } else {
-        // Zera/remover gols quando quantidade for 0
-        await db.execute({
-          sql: `DELETE FROM ${TABLE_GOLS} WHERE jogador_id = ?`,
-          args: [jogadorId],
-        });
-      }
-    }
-
-    console.log("[TURSO] Salvamento de gols concluído");
-  } catch (erro) {
-    console.error("[TURSO] Erro ao salvar gols no banco", erro);
-    throw erro;
-  }
+/** Gols apenas da pelada informada. */
+export async function lerGolsPorPeladaDb(
+  peladaId: number
+): Promise<GolsRecord> {
+  const db = requireDb();
+  await ensureSchema(db);
+  return lerGolsPorPeladaComDb(db, peladaId);
 }
 
-/** Converte linha do resultado (array ou objeto) em Jogador. */
+export async function salvarGolsPorPeladaDb(
+  peladaId: number,
+  gols: GolsRecord
+): Promise<void> {
+  const db = requireDb();
+  console.log("[TURSO] Salvando gols da pelada", {
+    peladaId,
+    totalJogadores: Object.keys(gols).length,
+  });
+  await ensureSchema(db);
+  await salvarGolsPorPeladaComDb(db, peladaId, gols);
+  console.log("[TURSO] Salvamento de gols da pelada concluído");
+}
+
+/** Artilharia geral: ajustes em `gols_geral_ajuste` (admin). */
+export async function salvarGolsGeralDb(gols: GolsRecord): Promise<GolsRecord> {
+  const db = requireDb();
+  await ensureSchema(db);
+  await salvarGolsGeralAjusteComDb(db, gols);
+  return lerGolsAgregadosComDb(db);
+}
+
+export async function adicionarGol(
+  nome: string,
+  peladaId: number
+): Promise<GolsRecord> {
+  const gols = await lerGolsPorPeladaDb(peladaId);
+  gols[nome] = (gols[nome] ?? 0) + 1;
+  await salvarGolsPorPeladaDb(peladaId, gols);
+  return lerGolsPorPeladaDb(peladaId);
+}
+
+export async function removerGol(
+  nome: string,
+  peladaId: number
+): Promise<GolsRecord> {
+  const gols = await lerGolsPorPeladaDb(peladaId);
+  if (gols[nome] != null && gols[nome] > 0) {
+    gols[nome] -= 1;
+    await salvarGolsPorPeladaDb(peladaId, gols);
+  }
+  return lerGolsPorPeladaDb(peladaId);
+}
+
+export async function listarPeladasDb(): Promise<Pelada[]> {
+  const db = requireDb();
+  await ensureSchema(db);
+  await ensurePeladaHojeSeQuartaComDb(db);
+  return listarPeladasComDb(db);
+}
+
+/** Peladas com ranking de gols por noite (para página de artilharia). */
+export async function listarPeladasComRankingDb(): Promise<PeladaComRanking[]> {
+  const db = requireDb();
+  await ensureSchema(db);
+  await ensurePeladaHojeSeQuartaComDb(db);
+  return listarPeladasComRankingComDb(db);
+}
+
+/** Resumo de uma pelada (destaques + ranking) pela data YYYY-MM-DD. */
+export async function obterPeladaComRankingPorDataDb(
+  dataISO: string
+): Promise<PeladaComRanking | null> {
+  const db = requireDb();
+  await ensureSchema(db);
+  await ensurePeladaHojeSeQuartaComDb(db);
+  return obterPeladaComRankingPorDataComDb(db, dataISO);
+}
+
+export async function obterPeladaDb(id: number): Promise<Pelada | null> {
+  const db = requireDb();
+  await ensureSchema(db);
+  return obterPeladaPorIdComDb(db, id);
+}
+
+export async function criarPeladaDb(input: PeladaCriarInput): Promise<Pelada> {
+  const db = requireDb();
+  await ensureSchema(db);
+  return criarPeladaComDb(db, input);
+}
+
+export async function atualizarDestaquesPeladaDb(
+  id: number,
+  patch: PeladaAtualizarDestaquesInput
+): Promise<Pelada | null> {
+  const db = requireDb();
+  await ensureSchema(db);
+  return atualizarDestaquesComDb(db, id, patch);
+}
+
+/** Cadastra as quartas de mar–dez/2026 que ainda não existem no banco. */
+export async function seedQuartasPelada2026Db(): Promise<{ inseridas: number }> {
+  const db = requireDb();
+  await ensureSchema(db);
+  return seedQuartasPelada2026ComDb(db);
+}
+
+/** @deprecated Mantido para compat; use salvarGolsPorPeladaDb. */
+export async function salvarGolsDb(_gols: GolsRecord): Promise<void> {
+  throw new Error(
+    "Use salvarGolsPorPeladaDb(peladaId, gols). Gols são por pelada."
+  );
+}
+
 function rowToJogador(
   row: unknown[] | Record<string, unknown>,
   cols?: string[]
@@ -206,15 +222,8 @@ function rowToJogador(
   };
 }
 
-/** Lista todos os jogadores do banco (fonte única na Vercel). */
 export async function listarJogadoresDb(): Promise<Jogador[]> {
-  const db = getClient();
-  if (!db) {
-    throw new Error(
-      "Turso não configurado. Defina TURSO_DATABASE_URL e TURSO_AUTH_TOKEN."
-    );
-  }
-
+  const db = requireDb();
   await ensureSchema(db);
 
   try {
@@ -237,7 +246,6 @@ export async function listarJogadoresDb(): Promise<Jogador[]> {
       "[TURSO] Erro ao listar jogadores, tentando fallback sem ZAG/MEI/ATA",
       erro
     );
-    // Fallback: tabela antiga sem ZAG/MEI/ATA — retorna só nome com notas 0
     const rs = await db.execute({
       sql: `SELECT nome FROM ${TABLE_JOGADORES} ORDER BY nome`,
     });
@@ -254,14 +262,8 @@ export async function listarJogadoresDb(): Promise<Jogador[]> {
   }
 }
 
-/** Importa/atualiza jogadores (ex.: seed a partir do JSON). */
 export async function seedJogadoresDb(jogadores: Jogador[]): Promise<void> {
-  const db = getClient();
-  if (!db) {
-    throw new Error(
-      "Turso não configurado. Defina TURSO_DATABASE_URL e TURSO_AUTH_TOKEN."
-    );
-  }
+  const db = requireDb();
 
   try {
     console.log("[TURSO] Seed de jogadores iniciado", {
